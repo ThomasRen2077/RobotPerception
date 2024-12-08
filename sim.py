@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.animation as animation
 from utils import *
+from sort import SORTTracker
 
 def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, psi_func, phi_func, simulation_time, fps, output_file):
     """
@@ -26,8 +27,15 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, psi_func, phi_func, si
     )
 
     # Set up vehicle(s) in the scene
-    vehicle = LinearVehicle(ax, ax, x_offset=5, y_offset=5, vel_dir=[0.5, 0.2], color="C1")
-    vehicle2 = LinearVehicle(ax, ax, x_offset=10, y_offset=15, vel_dir=[-0.3, -0.1], color="C2")
+    # vehicle = LinearVehicle(ax, ax, x_offset=5, y_offset=5, vel_dir=[0.5, 0.2], color="C1")
+    # vehicle2 = LinearVehicle(ax, ax, x_offset=10, y_offset=15, vel_dir=[-0.3, -0.1], color="C2")
+
+    # Set up animal(s) in the scene
+    animal1 = WildAnimal(ax, x_init=5, y_init=5, color="C1")
+    animal2 = WildAnimal(ax, x_init=10, y_init=15, color="C4")
+
+    sort_tracker = SORTTracker()
+    tracked_artists = {}
 
     # Set up simulation parameters
     frames = int(simulation_time * fps)
@@ -42,10 +50,47 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, psi_func, phi_func, si
         camera_fov.update_FOV(psi, phi)
 
         # Update vehicle movements
-        vehicle.update_vehicle(time)
-        vehicle2.update_vehicle(time)
+        # vehicle.update_vehicle(time)
+        # vehicle2.update_vehicle(time)
+        animal1.update()
+        animal2.update()
 
-        return []
+        # Gather detections (bounding boxes)
+        detections = [
+            [animal1.position[0] - 0.5, animal1.position[1] - 0.5, animal1.position[0] + 0.5, animal1.position[1] + 0.5],
+            [animal2.position[0] - 0.5, animal2.position[1] - 0.5, animal2.position[0] + 0.5, animal2.position[1] + 0.5]
+        ]
+
+        # Update SORT tracker
+        tracked_objects = sort_tracker.update(detections)
+
+        # Reuse or update existing artists
+        for obj_id, bbox in tracked_objects:
+            x_min, y_min, x_max, y_max = bbox
+            cx = (x_min + x_max) / 2  # Center X
+            cy = (y_min + y_max) / 2  # Center Y
+
+            ax.plot3D(
+                [x_min, x_max], [y_min, y_max], [0, 0], color="green"
+            )
+
+            # Update or create text label
+            if obj_id in tracked_artists:
+                tracked_artists[obj_id]['text'].set_position((cx, cy))
+                tracked_artists[obj_id]['text'].set_text(f"ID {obj_id}")
+            else:
+                # Create a new label
+                text = ax.text(cx, cy, 0, f"ID {obj_id}", fontsize=10, color="blue")
+                line = ax.plot3D([x_min, x_max], [y_min, y_max], [0, 0], color="green")[0]
+                tracked_artists[obj_id] = {'text': text, 'line': line}
+
+        # Remove any stale artists
+        for stale_id in list(tracked_artists.keys()):
+            if stale_id not in [obj[0] for obj in tracked_objects]:
+                tracked_artists[stale_id]['text'].remove()
+                tracked_artists[stale_id]['line'].remove()
+                del tracked_artists[stale_id]
+            return []
 
     anim = animation.FuncAnimation(fig, update, frames=frames, interval=1000 / fps, blit=False)
     anim.save(output_file, writer="pillow", fps=fps)
@@ -65,7 +110,7 @@ def phi_func(t):
 # Run the simulation and save the output
 if __name__ == "__main__":
     anim = dynamic_camera_simulation(
-        sensor_w=10, sensor_h=10, f=50, x_c=[20, 20, 10],
+        sensor_w=20, sensor_h=20, f=50, x_c=[0, 20, 15],
         psi_func=psi_func, phi_func=phi_func,
         simulation_time=10, fps=30,
         output_file="sim.gif"

@@ -164,6 +164,57 @@ class LinearVehicle:
         self.is_visible = visibility
         return self
 
+### WildAnimal functions ###
+
+class WildAnimal:
+    def __init__(self, ax, x_init, y_init, z_init=0, color="C1"):
+        self.ax = ax
+        self.position = np.array([x_init, y_init, z_init], dtype=np.float64)
+        self.color = color
+        self.speed = np.random.uniform(0.05, 0.2)  # Random initial speed
+        self.direction = np.random.uniform(0, 2 * np.pi)  # Random initial direction
+        self.pause_probability = 0.1  # Probability of pausing
+        self.corners, self.collection = self._plot_animal()
+
+    def _plot_animal(self):
+        animal_data = np.array([[self.position[0] - 0.5, self.position[1] - 0.5, self.position[2]],
+                                [self.position[0] + 0.5, self.position[1] - 0.5, self.position[2]],
+                                [self.position[0] + 0.5, self.position[1] + 0.5, self.position[2]],
+                                [self.position[0] - 0.5, self.position[1] + 0.5, self.position[2]]])
+        corners = self.ax.scatter3D(animal_data[:, 0], animal_data[:, 1], animal_data[:, 2], color=self.color, s=1)
+        verts = [[animal_data[0], animal_data[1], animal_data[2], animal_data[3]]]
+        collection = Poly3DCollection(verts, facecolors=self.color, linewidths=1, edgecolors=self.color, alpha=0.5)
+        self.ax.add_collection3d(collection)
+        return corners, collection
+
+    def update(self):
+        # Randomly decide whether to pause
+        if np.random.rand() < self.pause_probability:
+            return
+
+        # Update direction with a random small perturbation
+        self.direction += np.random.uniform(-np.pi / 8, np.pi / 8)
+
+        # Update position
+        dx = self.speed * np.cos(self.direction)
+        dy = self.speed * np.sin(self.direction)
+        new_position = self.position + np.array([dx, dy, 0], dtype=np.float64)
+
+        # Enforce boundary constraints
+        if 0 <= new_position[0] <= 40 and 0 <= new_position[1] <= 40:
+            self.position = new_position
+        else:
+            # Reflect direction upon hitting boundary
+            self.direction += np.pi  # Reverse direction
+
+        # Update visualization
+        animal_data = np.array([[self.position[0] - 0.5, self.position[1] - 0.5, self.position[2]],
+                                [self.position[0] + 0.5, self.position[1] - 0.5, self.position[2]],
+                                [self.position[0] + 0.5, self.position[1] + 0.5, self.position[2]],
+                                [self.position[0] - 0.5, self.position[1] + 0.5, self.position[2]]])
+        verts = [[animal_data[0], animal_data[1], animal_data[2], animal_data[3]]]
+        self.corners._offsets3d = (animal_data[:, 0], animal_data[:, 1], animal_data[:, 2])
+        self.collection.set_verts(verts)
 
 ### Helper functions ###
 
