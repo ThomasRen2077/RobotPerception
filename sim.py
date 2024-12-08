@@ -17,7 +17,6 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, simulation_time, fps, 
     ax_3d.set_ylim(0, 40)  
     ax_3d.set_zlim(0, 20) 
 
-
     # Data storage
     times = []
     psi_values = []
@@ -44,8 +43,13 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, simulation_time, fps, 
     animal2 = WildAnimal(ax_3d, x_init=10, y_init=15, color="C4")
 
     # Initialize PID controllers
-    pid_psi = PIDController(Kp=30, Ki=0.1, Kd=0.05, output_limits=(-1, 1))
-    pid_phi = PIDController(Kp=30, Ki=0.1, Kd=0.05, output_limits=(-1, 1))
+    # pid_psi = PIDController(Kp=30, Ki=0.1, Kd=0.05, output_limits=(-1, 1))
+    # pid_phi = PIDController(Kp=30, Ki=0.1, Kd=0.05, output_limits=(-1, 1))
+
+    # Non-PID controller
+    pid_psi = PIDController(Kp=60, Ki=0, Kd=0, output_limits=(-1, 1))
+    pid_phi = PIDController(Kp=60, Ki=0, Kd=0, output_limits=(-1, 1))
+
 
     sort_tracker = SORTTracker()
     tracked_artists = {}
