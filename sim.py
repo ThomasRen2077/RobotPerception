@@ -2,9 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.animation as animation
-from my_utils import *
-
-# Use the provided helper functions and classes (CameraFOV, LinearVehicle) here.
+from utils import *
 
 def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, psi_func, phi_func, simulation_time, fps, output_file):
     """
@@ -16,6 +14,8 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, psi_func, phi_func, si
     ax.set_xlim(0, 40)  
     ax.set_ylim(0, 40)  
     ax.set_zlim(0, 20) 
+
+    plot_camera(ax, x_c)
 
     # Initialize dynamic camera
     camera_fov = CameraFOV(
@@ -34,11 +34,11 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, psi_func, phi_func, si
     dt = 1 / fps
 
     def update(frame):
-        time = frame * dt  # Calculate time
+        time = frame * dt  
 
         # Update camera FOV
-        psi = psi_func(time)  # Dynamic pan angle
-        phi = phi_func(time)  # Dynamic tilt angle
+        psi = psi_func(time)  
+        phi = phi_func(time)  
         camera_fov.update_FOV(psi, phi)
 
         # Update vehicle movements
@@ -47,16 +47,10 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, psi_func, phi_func, si
 
         return []
 
-    # Create animation
     anim = animation.FuncAnimation(fig, update, frames=frames, interval=1000 / fps, blit=False)
-
-    # Save the animation as a GIF
     anim.save(output_file, writer="pillow", fps=fps)
-
-    # Show the plot
     plt.show()
 
-    # Return the animation object
     return anim
 
 # Example dynamic camera movement functions
@@ -74,5 +68,5 @@ if __name__ == "__main__":
         sensor_w=10, sensor_h=10, f=50, x_c=[20, 20, 10],
         psi_func=psi_func, phi_func=phi_func,
         simulation_time=10, fps=30,
-        output_file="dynamic_camera_simulation.gif"
+        output_file="sim.gif"
     )
