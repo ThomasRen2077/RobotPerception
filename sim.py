@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.animation as animation
+from matplotlib import gridspec
 from utils import *
 from sort import SORTTracker
 from pid import PIDController  # Make sure pid_controller.py is in the same directory
@@ -10,12 +11,36 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, simulation_time, fps, 
     """
     Simulate a dynamic camera with objects moving in its field of view and save the animation as a GIF.
     """
-    fig_3d = plt.figure(figsize=(12, 7))
-    ax_3d = fig_3d.add_subplot(111, projection='3d')
+    # Create a gridspec layout for the figure
+    fig_3d = plt.figure(figsize=(15, 7))
+    spec = gridspec.GridSpec(2, 2, width_ratios=[2, 1])
 
-    ax_3d.set_xlim(0, 40)  
-    ax_3d.set_ylim(0, 40)  
-    ax_3d.set_zlim(0, 20) 
+    # Left: 3D animation
+    ax_3d = fig_3d.add_subplot(spec[:, 0], projection='3d')
+    ax_3d.set_xlim(0, 40)
+    ax_3d.set_ylim(0, 40)
+    ax_3d.set_zlim(0, 20)
+    ax_3d.set_title("3D Camera FOV and Moving Objects")
+
+    # Right top: ψ and φ
+    ax_psi_phi = fig_3d.add_subplot(spec[0, 1])
+    ax_psi_phi.set_title("ψ (Pan) and φ (Tilt)")
+    ax_psi_phi.set_xlabel("Time (s)")
+    ax_psi_phi.set_ylabel("Radians")
+    line_psi, = ax_psi_phi.plot([], [], label="ψ (Pan)", color="blue")
+    line_phi, = ax_psi_phi.plot([], [], label="φ (Tilt)", color="orange")
+    ax_psi_phi.legend()
+    ax_psi_phi.grid(True)
+
+    # Right bottom: ψ̇ and φ̇
+    ax_psi_dot_phi_dot = fig_3d.add_subplot(spec[1, 1])
+    ax_psi_dot_phi_dot.set_title("ψ̇ (Pan Velocity) and φ̇ (Tilt Velocity)")
+    ax_psi_dot_phi_dot.set_xlabel("Time (s)")
+    ax_psi_dot_phi_dot.set_ylabel("Radians/s")
+    line_psi_dot, = ax_psi_dot_phi_dot.plot([], [], label="ψ̇ (Pan Velocity)", color="green")
+    line_phi_dot, = ax_psi_dot_phi_dot.plot([], [], label="φ̇ (Tilt Velocity)", color="red")
+    ax_psi_dot_phi_dot.legend()
+    ax_psi_dot_phi_dot.grid(True)
 
     # Data storage
     times = []
@@ -43,13 +68,12 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, simulation_time, fps, 
     animal2 = WildAnimal(ax_3d, x_init=10, y_init=15, color="C4")
 
     # Initialize PID controllers
-    # pid_psi = PIDController(Kp=30, Ki=0.1, Kd=0.05, output_limits=(-1, 1))
-    # pid_phi = PIDController(Kp=30, Ki=0.1, Kd=0.05, output_limits=(-1, 1))
+    pid_psi = PIDController(Kp=30, Ki=0.1, Kd=0.05, output_limits=(-1, 1))
+    pid_phi = PIDController(Kp=30, Ki=0.1, Kd=0.05, output_limits=(-1, 1))
 
     # Non-PID controller
-    pid_psi = PIDController(Kp=60, Ki=0, Kd=0, output_limits=(-1, 1))
-    pid_phi = PIDController(Kp=60, Ki=0, Kd=0, output_limits=(-1, 1))
-
+    # pid_psi = PIDController(Kp=30, Ki=0, Kd=0, output_limits=(-1, 1))
+    # pid_phi = PIDController(Kp=30, Ki=0, Kd=0, output_limits=(-1, 1))
 
     sort_tracker = SORTTracker()
     tracked_artists = {}
@@ -122,6 +146,19 @@ def dynamic_camera_simulation(sensor_w, sensor_h, f, x_c, simulation_time, fps, 
         phi_values.append(current_phi)
         psi_dot_values.append(psi_dot)
         phi_dot_values.append(phi_dot)
+
+        # Update ψ and φ plot
+        line_psi.set_data(times, psi_values)
+        line_phi.set_data(times, phi_values)
+        ax_psi_phi.set_xlim(0, max(times))
+        ax_psi_phi.set_ylim(-np.pi, np.pi)
+
+        # Update ψ̇ and φ̇ plot
+        line_psi_dot.set_data(times, psi_dot_values)
+        line_phi_dot.set_data(times, phi_dot_values)
+        ax_psi_dot_phi_dot.set_xlim(0, max(times))
+        ax_psi_dot_phi_dot.set_ylim(-1, 1)
+
 
         # Gather detections (bounding boxes)
         detections = [
