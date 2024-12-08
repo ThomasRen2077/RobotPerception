@@ -1,4 +1,5 @@
 import numpy as np
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 from matplotlib import pyplot as plt
 
 ########################
@@ -180,3 +181,262 @@ class CameraFOV:
             [fov_data[0],fov_data[1],fov_data[3], fov_data[2]]
         ]
         return fov_data, fov_verts
+
+#########################
+### Vehicle functions ###
+#########################
+class LinearVehicle:
+    
+    def __init__(self, ax, ax2, v_l=3, v_w=3, x_offset=0, y_offset=0, vel_dir=[1, 1], color="C0", is_visible=True):
+        self.ax = ax
+        self.ax2 = ax2
+        self.v_l = v_l
+        self.v_w = v_w
+        self.x_offset = x_offset
+        self.y_offset = y_offset
+        self.vel_dir = vel_dir
+        self.color = color
+        # Initialize vehicles
+        #self.v_vel = np.random.uniform(0.5, 1.5) * np.array(vel_dir)
+        self.v_vel = np.array(vel_dir)
+        self.v_data_0, self.v_corners, self.v_collection = self._plot_vehicle()
+        self.vv_corners, self.vv_collection = None, None
+        self.is_visible = is_visible
+        if not self.is_visible:
+            self.set_visible(False)
+            
+    def _plot_vehicle(self):
+        # Inertial dataframe
+        v_data_init = np.array([[self.v_w, -self.v_l/2, 0], 
+                   [self.v_w, self.v_l/2, 0], 
+                   [0, -self.v_l/2, 0], 
+                   [0, +self.v_l/2, 0]])
+        R_mat = get_2d_R(np.arctan(self.v_vel[1]/self.v_vel[0]))
+        v_data = (R_mat @ v_data_init.T).T
+        v_data[:, 0] += self.x_offset
+        v_data[:, 1] += self.y_offset
+        v_corners = self.ax.scatter3D(
+            v_data[:, 0], v_data[:, 1], v_data[:, 2], depthshade=False, s=1, color=self.color, zorder=10)
+        v_verts = [ 
+            [v_data[0],v_data[1],v_data[3], v_data[2]]
+        ]
+        v_collection = Poly3DCollection(v_verts, 
+         facecolors=self.color, linewidths=1, edgecolors=self.color, alpha=.5, zorder=10)
+        self.ax.add_collection3d(v_collection)
+        return v_data, v_corners, v_collection
+    
+    def update_vehicle(self, t):
+        v_data = self.get_vehicle_data(t)
+        v_verts = [ 
+                [v_data[0],v_data[1],v_data[3], v_data[2]]
+            ]
+        self.v_corners._offsets3d = (v_data[:, 0], v_data[:, 1], v_data[:, 2])
+        self.v_collection.set_verts(v_verts)
+        return self
+    
+    def update_vehicle_virtual(self, camera_fov, t):
+        vv_data = self.get_vehicle_data_virtual(camera_fov, t)
+        vv_verts = [ 
+                [vv_data[0],vv_data[1],vv_data[3], vv_data[2]]
+            ]
+        if self.vv_corners is None:
+            self.vv_corners = self.ax2.scatter(vv_data[:, 0], vv_data[:, 1], color=self.color, s=1)
+            self.vv_collection = collections.PolyCollection(
+                vv_verts, 
+                facecolors=self.color, linewidths=1, edgecolors=self.color, alpha=.5)
+            self.ax2.add_collection(self.vv_collection, autolim=True)
+        else:
+            self.vv_corners.set_offsets(vv_data)
+            self.vv_collection.set_verts(vv_verts)
+        return self
+    
+    def get_vehicle_data(self, t):
+        v_data = np.zeros((4, 3))
+        v_data[:, 0] = self.v_data_0[:, 0] + self.v_vel[0]*t
+        v_data[:, 1] = self.v_data_0[:, 1] + self.v_vel[1]*t
+        return v_data
+    
+    def get_vehicle_data_virtual(self, camera_fov, t):
+        v_data = self.get_vehicle_data(t)
+        psi, phi, f, x_c = camera_fov.psi, camera_fov.phi, camera_fov.f, camera_fov.x_c
+        i_to_v_tx = intertial_to_virtual_coord_gen(psi, phi, f, x_c)
+        vv_data = np.zeros((4, 2))
+        for i, vec in enumerate(v_data):
+            vv_data[i] = i_to_v_tx(v_data[i])
+        return vv_data
+
+    def set_visible(self, visibility=False):
+        self.v_collection.set_visible(visibility)
+        self.v_corners.set_visible(visibility)
+        if self.vv_corners is not None and self.vv_collection is not None:
+            self.vv_corners.set_visible(visibility)
+            self.vv_collection.set_visible(visibility)
+        self.is_visible = visibility
+        return self
+
+
+############################
+### Background functions ###
+############################
+class BackgroundObject:
+    
+    def __init__(self, ax, ax2, v_l=3, v_w=3, x_offset=0, y_offset=0, vel_dir=[1, 1], color="C0"):
+        self.ax = ax
+        self.ax2 = ax2
+        self.v_l = v_l
+        self.v_w = v_w
+        self.x_offset = x_offset
+        self.y_offset = y_offset
+        self.vel_dir = vel_dir
+        self.color = color
+        # Initialize vehicles
+        self.v_data_0, self.v_corners, self.v_collection = self._plot_vehicle()
+        self.vv_corners, self.vv_collection = None, None
+    
+    def _plot_vehicle(self):
+        # Inertial dataframe
+        v_data_init = np.array([[self.v_w, -self.v_l/2, 0], 
+                   [self.v_w, self.v_l/2, 0], 
+                   [0, -self.v_l/2, 0], 
+                   [0, +self.v_l/2, 0]])
+        if self.vel_dir[0]==0:
+             R_mat = get_2d_R(np.pi/2)
+        else:
+            R_mat = get_2d_R(np.arctan(self.vel_dir[1]/self.vel_dir[0]))
+        v_data = (R_mat @ v_data_init.T).T
+        v_data[:, 0] += self.x_offset
+        v_data[:, 1] += self.y_offset
+        v_corners = self.ax.scatter3D(
+            v_data[:, 0], v_data[:, 1], v_data[:, 2], depthshade=False, s=1, color=self.color, zorder=5)
+        v_verts = [ 
+            [v_data[0],v_data[1],v_data[3], v_data[2]]
+        ]
+        v_collection = Poly3DCollection(v_verts, 
+         facecolors=self.color, linewidths=1, edgecolors=self.color, alpha=.5, zorder=5)
+        self.ax.add_collection3d(v_collection)
+
+        return v_data, v_corners, v_collection
+    
+    def update_vehicle_virtual(self, camera_fov):
+        vv_data = self.get_vehicle_data_virtual(camera_fov)
+        vv_verts = [ 
+                [vv_data[0],vv_data[1],vv_data[3], vv_data[2]]
+            ]
+        if self.vv_corners is None:
+            self.vv_corners = self.ax2.scatter(vv_data[:, 0], vv_data[:, 1], color=self.color, s=1)
+            self.vv_collection = collections.PolyCollection(
+                vv_verts, 
+                facecolors=self.color, linewidths=1, edgecolors=self.color, alpha=.5)
+            self.ax2.add_collection(self.vv_collection, autolim=True)
+        else:
+            self.vv_corners.set_offsets(vv_data)
+            self.vv_collection.set_verts(vv_verts)
+        return self
+    
+    def get_vehicle_data_virtual(self, camera_fov):
+        psi, phi, f, x_c = camera_fov.psi, camera_fov.phi, camera_fov.f, camera_fov.x_c
+        i_to_v_tx = intertial_to_virtual_coord_gen(psi, phi, f, x_c)
+        vv_data = np.zeros((4, 2))
+        for i, vec in enumerate(self.v_data_0):
+            vv_data[i] = i_to_v_tx(self.v_data_0[i])
+        return vv_data
+
+
+#######################
+### Animation Setup ###
+#######################
+
+def animation_setup(sensor_w, sensor_h, f, x_c, psi_0, phi_0, t_max, fps):
+    fig = plt.figure(figsize=(12, 7))
+    gs = fig.add_gridspec(4,2)
+
+    ax = fig.add_subplot(gs[:, 0], projection='3d')
+    #ax.w_zaxis.set_pane_color(mcolors.to_rgba('whitesmoke'))
+    ax.set_box_aspect([2,2,1])
+    ax2 = fig.add_subplot(gs[:2, 1])
+
+    ax3 = fig.add_subplot(gs[2, 1])
+    ax4 = fig.add_subplot(gs[3, 1])
+    fig.tight_layout(pad=1.5, w_pad=5)
+    fig.subplots_adjust(right=0.93)
+
+    x_max = 40
+
+    ax.set_xlim(0, x_max)
+    ax.set_ylim(0, x_max)
+    ax.set_zlim(0, x_max/2)
+    ax.set_zticks([0,5,10,15,20])
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+
+    ax2.set_yticks([-2, -1, 0, 1, 2])
+    ax2.set_xlim(-sensor_w/2, sensor_w/2)
+    ax2.set_ylim(-sensor_h/2, sensor_h/2)
+    #ax2.set_facecolor('whitesmoke')
+    ax2.set_title("Virtual FOV: Surveillance")
+    ax3.set_title("Input Voltages (normalized) vs Time", fontsize=10)
+    ax3.set_ylim(-1.02, 1.02)
+    ax3.set_yticks([-1, 0, 1])
+    ax4.set_title("Pan and Tilt Angles vs Time", fontsize=10)
+
+    # Set up angle plot
+    ax4.set_xlim(0, t_max)
+    ax4.set_ylim(-0.02, 2*np.pi+0.02)
+    ax4.set_yticks([0, np.pi*0.5, np.pi, np.pi*3/2, 2*np.pi], 
+                   [0, r"$\frac{\pi}{2}$", r"$\pi$", r"$\frac{3\pi}{2}$", r"$2\pi$"])
+    ax4.set_ylabel(r'$\psi_t$', color = "C0") 
+    ax4.tick_params(axis ='y', labelcolor = "C0")
+    psi_line, = ax4.plot(
+                    [], 
+                    [], 
+                    color="C0")
+    psi_data = np.zeros((2, t_max*fps))
+    psi_data[0] = np.arange(t_max*fps)/fps
+
+    ax4.set_xlabel("time (s)")
+    ax4_phi = ax4.twinx() 
+    ax4_phi.set_ylim(-0.02+np.pi/2, np.pi+0.02)
+    ax4_phi.set_ylabel(r'$\phi_t$', color = "C3") 
+    ax4_phi.tick_params(axis ='y', labelcolor = "C3") 
+    ax4_phi.set_yticks([np.pi*0.5, np.pi*0.75, np.pi], 
+                       [r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$"]) 
+    phi_line, = ax4_phi.plot(
+                    [], 
+                    [], 
+                    color="C3")
+    phi_data = np.zeros((2, t_max*fps))
+    phi_data[0] = np.arange(t_max*fps)/fps
+
+    # Set up u plots
+    ax3.set_xlim(0, t_max)
+    ax3.set_ylabel(r'$u_1$', color = "C0") 
+    ax3.tick_params(axis ='y', labelcolor = "C0")
+    u1_line, = ax3.plot(
+                    [], 
+                    [], 
+                    color="C0")
+    u1_data = np.zeros((2, t_max*fps))
+    u1_data[0] = np.arange(t_max*fps)/fps
+
+    ax3_phi = ax3.twinx() 
+    ax3_phi.set_ylabel(r'$u_2$', color = "C3") 
+    ax3_phi.set_ylim(-1.02, 1.02)
+    ax3_phi.tick_params(axis ='y', labelcolor = "C3") 
+    u2_line, = ax3_phi.plot(
+                    [], 
+                    [], 
+                    color="C3")
+    u2_data = np.zeros((2, t_max*fps))
+    u2_data[0] = np.arange(t_max*fps)/fps
+    # Plot camera
+    plot_camera(ax, x_c)
+
+    # Add camera FOV
+    camera_fov = CameraFOV(
+        ax=ax,
+        psi=psi_0, phi=phi_0, 
+        psi_dot=0, phi_dot=0,
+        f=f, sensor_w=sensor_w, sensor_h=sensor_h, x_c=x_c)
+    
+    return fig, ax, ax2, camera_fov, psi_line, psi_data, phi_line, phi_data, u1_line, u1_data, u2_line, u2_data
