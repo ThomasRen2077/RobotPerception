@@ -71,6 +71,15 @@ class CameraFOV:
             [fov_data[0],fov_data[1],fov_data[3], fov_data[2]]
         ]
         return fov_data, fov_verts
+    
+    def get_FOV_direction(self):
+        sensor_center = np.array([0, 0])  
+        v_to_i_tx = virtual_to_inertial_coord(self.psi, self.phi, self.f, self.x_c)
+        center_world = v_to_i_tx(sensor_center)
+        direction = center_world - np.array(self.x_c)
+        direction_normalized = direction / np.linalg.norm(direction)
+        return direction_normalized
+
 
 
 ### Vehicle functions ###

@@ -58,14 +58,11 @@ class PIDController:
         # Apply output limits
         output = max(self.output_limits[0], min(output, self.output_limits[1]))
 
-        # Scale output by the time step (dt)
-        scaled_output = output * dt
-
         # Update stored variables
         self._prev_error = error
         self._last_time = current_time
 
-        return scaled_output
+        return output
 
     def reset(self):
         """

@@ -43,8 +43,8 @@ camera = CameraFOV(
 )
 
 # Initialize PID controllers for pan (ψ) and tilt (φ)
-pid_psi = PIDController(Kp=0.6, Ki=0.1, Kd=0.05, output_limits=(-2, 2))
-pid_phi = PIDController(Kp=0.6, Ki=0.1, Kd=0.05, output_limits=(-2, 2))
+pid_psi = PIDController(Kp=15, Ki=0.1, Kd=0.05, output_limits=(-0.1, 0.1))
+pid_phi = PIDController(Kp=15, Ki=0.1, Kd=0.05, output_limits=(-0.1, 0.1))
 
 current_target = 0  # Start by tracking Target 1
 hysteresis_threshold = 2.0  # Threshold for switching targets (e.g., 2 units)
