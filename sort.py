@@ -5,9 +5,6 @@ import matplotlib.pyplot as plt
 
 
 class SORTTracker:
-    """
-    SORT tracker for multi-object tracking.
-    """
     def __init__(self):
         self.trackers = []
         self.next_id = 0

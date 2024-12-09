@@ -3,9 +3,6 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 from matplotlib import pyplot as plt
 
 
-### Camera functions ###
-
-# Plot camera
 def plot_camera(ax, x_c):
     u = np.linspace(0, 2*np.pi, 20)
     v = np.linspace(0, np.pi, 10)
@@ -17,7 +14,6 @@ def plot_camera(ax, x_c):
     ax.text(x_c[0], x_c[1], x_c[2]+2, "PT Camera", fontsize=10)
 
 class CameraFOV:
-
     def __init__(self, ax, psi, phi, psi_dot, phi_dot, f, sensor_w, sensor_h, x_c):
         self.psi = psi
         self.phi = phi
@@ -81,11 +77,7 @@ class CameraFOV:
         return direction_normalized
 
 
-
-### Vehicle functions ###
-
 class LinearVehicle:
-    
     def __init__(self, ax, ax2, v_l=3, v_w=3, x_offset=0, y_offset=0, vel_dir=[1, 1], color="C0", is_visible=True):
         self.ax = ax
         self.ax2 = ax2
@@ -95,8 +87,6 @@ class LinearVehicle:
         self.y_offset = y_offset
         self.vel_dir = vel_dir
         self.color = color
-        # Initialize vehicles
-        #self.v_vel = np.random.uniform(0.5, 1.5) * np.array(vel_dir)
         self.v_vel = np.array(vel_dir)
         self.v_data_0, self.v_corners, self.v_collection = self._plot_vehicle()
         self.vv_corners, self.vv_collection = None, None
@@ -105,7 +95,6 @@ class LinearVehicle:
             self.set_visible(False)
             
     def _plot_vehicle(self):
-        # Inertial dataframe
         v_data_init = np.array([[self.v_w, -self.v_l/2, 0], 
                    [self.v_w, self.v_l/2, 0], 
                    [0, -self.v_l/2, 0], 
@@ -173,16 +162,14 @@ class LinearVehicle:
         self.is_visible = visibility
         return self
 
-### WildAnimal functions ###
-
 class WildAnimal:
     def __init__(self, ax, x_init, y_init, z_init=0, color="C1"):
         self.ax = ax
         self.position = np.array([x_init, y_init, z_init], dtype=np.float64)
         self.color = color
-        self.speed = np.random.uniform(0.05, 0.2)  # Random initial speed
-        self.direction = np.random.uniform(0, 2 * np.pi)  # Random initial direction
-        self.pause_probability = 0.1  # Probability of pausing
+        self.speed = np.random.uniform(0.05, 0.2)  
+        self.direction = np.random.uniform(0, 2 * np.pi)  
+        self.pause_probability = 0.1  
         self.corners, self.collection = self._plot_animal()
 
     def _plot_animal(self):
@@ -197,26 +184,20 @@ class WildAnimal:
         return corners, collection
 
     def update(self):
-        # Randomly decide whether to pause
         if np.random.rand() < self.pause_probability:
             return
 
-        # Update direction with a random small perturbation
         self.direction += np.random.uniform(-np.pi / 8, np.pi / 8)
 
-        # Update position
         dx = self.speed * np.cos(self.direction)
         dy = self.speed * np.sin(self.direction)
         new_position = self.position + np.array([dx, dy, 0], dtype=np.float64)
 
-        # Enforce boundary constraints
         if 0 <= new_position[0] <= 40 and 0 <= new_position[1] <= 40:
             self.position = new_position
         else:
-            # Reflect direction upon hitting boundary
-            self.direction += np.pi  # Reverse direction
+            self.direction += np.pi  
 
-        # Update visualization
         animal_data = np.array([[self.position[0] - 0.5, self.position[1] - 0.5, self.position[2]],
                                 [self.position[0] + 0.5, self.position[1] - 0.5, self.position[2]],
                                 [self.position[0] + 0.5, self.position[1] + 0.5, self.position[2]],
@@ -225,9 +206,6 @@ class WildAnimal:
         self.corners._offsets3d = (animal_data[:, 0], animal_data[:, 1], animal_data[:, 2])
         self.collection.set_verts(verts)
 
-### Helper functions ###
-
-# 2D rotation
 def get_2d_R(u):
     return np.array([
         [np.cos(u), -np.sin(u), 0],
@@ -235,7 +213,6 @@ def get_2d_R(u):
         [0, 0, 1]
     ])
 
-# phi rotation matrix
 def get_R_phi(phi):
     R_phi = np.array(
     [[1, 0, 0],
@@ -244,7 +221,6 @@ def get_R_phi(phi):
     )
     return R_phi.T
 
-# psi rotation matrix
 def get_R_psi(psi):
     R_psi = np.array(
     [[np.cos(psi), np.sin(psi), 0],
@@ -253,7 +229,6 @@ def get_R_psi(psi):
     )
     return R_psi.T
 
-# derivative phi rotation matrix
 def get_R_phi_derivative(phi, phi_dot):
     R_phi = np.array(
     [[0, 0, 0],
@@ -262,7 +237,6 @@ def get_R_phi_derivative(phi, phi_dot):
     )
     return R_phi.T * phi_dot
 
-# derivative psi rotation matrix, to be multiplied by psi_dot
 def get_R_psi_derivative(psi, psi_dot):
     R_psi = np.array(
     [[-np.sin(psi), np.cos(psi), 0],
@@ -271,9 +245,7 @@ def get_R_psi_derivative(psi, psi_dot):
     )
     return R_psi.T * psi_dot
 
-# generator for intertial to virtual coordinate transformer
 def intertial_to_virtual_coord_gen(psi, phi, f, x_c):
-    # phi is tilt, psi is pan
     R_phi = get_R_phi(phi)
     R_psi = get_R_psi(psi)
     def i_to_v_transformer(x):
@@ -281,7 +253,6 @@ def intertial_to_virtual_coord_gen(psi, phi, f, x_c):
         return f*np.array([q[0]/q[2], q[1]/q[2]])
     return i_to_v_transformer
 
-# generator for virtual to inertial coordinate transformer
 def virtual_to_inertial_coord(psi, phi, f, x_c):
     R_phi = get_R_phi(phi)
     R_psi = get_R_psi(psi)
@@ -293,7 +264,6 @@ def virtual_to_inertial_coord(psi, phi, f, x_c):
         return np.array([p_aug[0]*q_z+x_c[0], p_aug[1]*q_z+x_c[1], 0])
     return v_to_i_transformer
 
-# generator for virtual to inertial coordinate transformer
 def virtual_to_inertial_velocity_gen(psi, phi, psi_dot, phi_dot, f, x_c):
     R_phi = get_R_phi(phi)
     R_psi = get_R_psi(psi)
